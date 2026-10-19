@@ -23,6 +23,16 @@ export interface LoggingConfig {
   json?: boolean;
 }
 
+/** Configuration for multi-RPC failover with health checks. */
+export interface RpcFailoverConfig {
+  /** Array of RPC URLs for failover (at least one required when using failover). */
+  rpcUrls: string[];
+  /** Health check interval in milliseconds (default: 30000). */
+  healthCheckIntervalMs?: number;
+  /** Timeout for health check requests in milliseconds (default: 5000). */
+  healthCheckTimeoutMs?: number;
+}
+
 /** Configuration options for initializing a TrustFlowClient instance. */
 export interface ClientConfig {
   /** Target network. Defaults to "TESTNET". */
@@ -31,6 +41,8 @@ export interface ClientConfig {
   contractId: string;
   /** Custom Soroban RPC endpoint URL. */
   rpcUrl?: string;
+  /** Multi-RPC failover configuration (alternative to single rpcUrl). */
+  rpcFailover?: RpcFailoverConfig;
   /** Custom Horizon server endpoint URL. */
   horizonUrl?: string;
   /** Custom Stellar network passphrase for private / standalone networks. */

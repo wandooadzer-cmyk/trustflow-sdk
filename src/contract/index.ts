@@ -30,4 +30,5 @@ export {
   buildVoteArgs,
   buildRevealArgs,
 } from './build';
-export type { SimulationResult, SimulateContractCallOptions } from './simulate';
+export type { SimulationResult, SimulateContractCallOptions, ResourceFootprint } from './simulate';
+export { estimateResourceFootprint, STROOPS_PER_XLM } from './simulate';
