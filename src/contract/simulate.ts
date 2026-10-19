@@ -18,8 +18,57 @@ export interface SimulationResult {
   };
 }
 
+/** Resource footprint estimation from a simulation response. */
+export interface ResourceFootprint {
+  /** CPU instructions required. */
+  cpuInsns: number;
+  /** Memory bytes required. */
+  memBytes: number;
+  /** Estimated fee in stroops. */
+  feeStroops: number;
+  /** Estimated fee in XLM (stroops / 10,000,000). */
+  feeXlm: number;
+}
+
+/** Stroops per XLM (1 XLM = 10,000,000 stroops). */
+export const STROOPS_PER_XLM = 10_000_000;
+
 /** Per-call account and retry overrides for {@link simulateContractCall}. */
 export type SimulateContractCallOptions = ReadContractStateOptions;
+
+/**
+ * Parses resource footprint from a simulation result.
+ *
+ * Extracts CPU instructions and memory bytes from the simulation cost,
+ * and calculates the estimated fee in both stroops and XLM.
+ *
+ * @param result - Simulation result from {@link simulateContractCall}
+ * @returns Resource footprint with CPU, memory, and fee estimates
+ *
+ * @example
+ * ```typescript
+ * const result = await simulateContractCall(client, xdr);
+ * if (result.success) {
+ *   const footprint = estimateResourceFootprint(result);
+ *   console.log(`Estimated cost: ${footprint.feeXlm} XLM`);
+ * }
+ * ```
+ */
+export function estimateResourceFootprint(result: SimulationResult): ResourceFootprint {
+  const cpuInsns = parseInt(result.cost.cpuInsns, 10) || 0;
+  const memBytes = parseInt(result.cost.memBytes, 10) || 0;
+
+  // Estimate fee based on CPU instructions (simplified model)
+  // Real calculation may depend on network state and resource pricing
+  const estimatedFeeStroops = Math.ceil(cpuInsns / 1000);
+
+  return {
+    cpuInsns,
+    memBytes,
+    feeStroops: estimatedFeeStroops,
+    feeXlm: estimatedFeeStroops / STROOPS_PER_XLM,
+  };
+}
 
 /**
  * Simulates an already-assembled transaction envelope without submitting it.

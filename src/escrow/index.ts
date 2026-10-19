@@ -1,7 +1,7 @@
 export { TrustFlowEscrowClient } from './client';
 export type { GetGigsOptions, TrustFlowEscrowClientOptions } from './client';
 export { EscrowBuilder } from './builder';
-export { EscrowMonitor } from './monitor';
+export { EscrowMonitor, EventsIterator } from './monitor';
 export type {
   EscrowMonitorOnError,
   EscrowMonitorErrorContext,
@@ -12,6 +12,7 @@ export type {
   MonitorGapInfo,
   ResilientPollingOptions,
   CursorAwareFetchFn,
+  EventsIteratorOptions,
 } from './monitor';
 export { DisputeClient, disputeEscrow } from './dispute';
 export type { DisputeClientOptions } from './dispute';

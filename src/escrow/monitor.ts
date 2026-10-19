@@ -77,6 +77,59 @@ export interface ResilientPollingOptions {
   resume?: boolean;
 }
 
+/** Options for {@link EscrowMonitor.getEventsIterator}. */
+export interface EventsIteratorOptions {
+  /** Starting cursor for pagination. If not provided, starts from the beginning. */
+  fromCursor?: string;
+  /** Maximum number of events to fetch in each batch. */
+  limit?: number;
+  /** Signal to cancel iteration. */
+  signal?: AbortSignal;
+}
+
+/** Async iterator for paginating through contract events. */
+export class EventsIterator implements AsyncIterable<ParsedTrustFlowEvent> {
+  constructor(
+    private fetchFn: CursorAwareFetchFn,
+    private options: EventsIteratorOptions = {},
+  ) {}
+
+  async *[Symbol.asyncIterator](): AsyncIterator<ParsedTrustFlowEvent> {
+    let cursor = this.options.fromCursor;
+    const { signal } = this.options;
+
+    while (true) {
+      if (signal?.aborted) {
+        throw new DOMException('Iterator aborted', 'AbortError');
+      }
+
+      try {
+        const events = await this.fetchFn(cursor);
+        if (!events || events.length === 0) {
+          break;
+        }
+
+        for (const event of events) {
+          if (signal?.aborted) {
+            throw new DOMException('Iterator aborted', 'AbortError');
+          }
+          yield event;
+        }
+
+        const lastEvent = events[events.length - 1];
+        cursor = lastEvent.pagingToken || lastEvent.id;
+      } catch (error) {
+        // Re-throw abort errors as-is
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          throw error;
+        }
+        // For other errors, rethrow with context
+        throw error;
+      }
+    }
+  }
+}
+
 /**
  * Cursor-aware fetch function for resilient polling. Receives the last saved
  * cursor (or `undefined` on first poll) and returns parsed events.
@@ -490,6 +543,36 @@ export class EscrowMonitor {
       async (cursor) => parseEvents(await fetchRaw(cursor), contractId),
       options,
     );
+  }
+
+  /**
+   * Returns an async iterator for paginating through historical contract events.
+   *
+   * The iterator automatically handles cursor pagination and can be cancelled via AbortSignal.
+   * Uses `for await...of` to iterate through events:
+   *
+   * @param fetchFn - Cursor-aware fetcher that returns parsed events
+   * @param options - Iterator options (cursor, limit, abort signal)
+   * @returns An async iterable that yields ParsedTrustFlowEvent
+   *
+   * @example
+   * ```ts
+   * const monitor = new EscrowMonitor();
+   * const iterator = monitor.getEventsIterator(async (cursor) => {
+   *   const page = await fetchContractEvents(server, { contractId, cursor });
+   *   return parseEvents(page.events, contractId);
+   * });
+   *
+   * for await (const event of iterator) {
+   *   console.log(event.type, event.data);
+   * }
+   * ```
+   */
+  getEventsIterator(
+    fetchFn: CursorAwareFetchFn,
+    options: EventsIteratorOptions = {},
+  ): AsyncIterable<ParsedTrustFlowEvent> {
+    return new EventsIterator(fetchFn, options);
   }
 
   stopPolling(): void {
