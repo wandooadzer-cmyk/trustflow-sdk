@@ -10,6 +10,7 @@ import type { TrustFlowClient } from '../client';
 import type { AccountContext } from '../accounts/types';
 import { TrustFlowError } from '../errors';
 import { retry } from '../utils/retry';
+import { DEFAULT_RESOURCE_FEE_MULTIPLIER, padResourceFee } from '../utils/resource-fee';
 import { classifyFailure, markTransient } from '../utils/transient';
 import { withTimeout } from '../utils/timeout';
 import { queueDepth, queueKey, runExclusive } from './queue';
@@ -36,7 +37,6 @@ const DEFAULT_RETRY_POLICY: Required<Omit<RetryPolicy, 'timeoutMs'>> = {
   maxDelayMs: 5000,
 };
 
-const DEFAULT_RESOURCE_FEE_MULTIPLIER = 1.1;
 const DEFAULT_POLL_INTERVAL_MS = 1500;
 const DEFAULT_POLL_ATTEMPTS = 10;
 
@@ -369,10 +369,7 @@ export class TransactionPipeline {
       return fail(TrustFlowError.simulationFailed(simData.error));
     }
 
-    const multiplier = options?.resourceFeeMultiplier ?? DEFAULT_RESOURCE_FEE_MULTIPLIER;
-    const multiplierBps = BigInt(Math.round(multiplier * 10000));
-    const minResourceFeeBig = BigInt(simData.minResourceFee || '0');
-    const resourceFee = ((minResourceFeeBig * multiplierBps + 9999n) / 10000n).toString();
+    const resourceFee = padResourceFee(simData.minResourceFee, options?.resourceFeeMultiplier);
 
     let minInclusionFee = BigInt(tx.fee || BASE_FEE);
     if (minInclusionFee <= 0n) {
@@ -428,7 +425,7 @@ export class TransactionPipeline {
           );
         }
 
-        const paddedFee = Math.ceil(Number(simulation.minResourceFee) * multiplier).toString();
+        const paddedFee = padResourceFee(simulation.minResourceFee, multiplier);
         simulation.transactionData.setResourceFee(paddedFee);
         this.pipelineLogger.debug('Transaction prepared', {
           paddedFee,

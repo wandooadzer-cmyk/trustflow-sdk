@@ -1,10 +1,12 @@
 /**
  * Zod runtime validation schemas for TrustFlow SDK (#45, #214, #233).
  *
- * These are the same schemas the SDK uses internally to validate inputs
- * before building contract calls. They are exported from the package root
- * so consumers (including frontend form/validation code) can reuse them
- * directly instead of re-implementing the same rules, e.g.:
+ * These schemas document the rules the SDK enforces on inputs before building
+ * contract calls. The one exception is `ClientConfigSchema`, which the
+ * `TrustFlowClient` constructor does not run; see the note above it (#437).
+ * They are exported from the package root so consumers (including frontend
+ * form/validation code) can reuse them directly instead of re-implementing
+ * the same rules, e.g.:
  *
  * ```typescript
  * import { CreateEscrowSchema } from '@trustflow/sdk';
@@ -91,11 +93,37 @@ export const DisputeEscrowSchema = z.object({
 
 // ── Client config ─────────────────────────────────────────────────────────────
 
-/** Validates the config object passed to `new TrustFlowClient(...)`. */
+const AddAccountSchema = z.object({
+  address: StellarAddressSchema,
+  id: z.string().optional(),
+  label: z.string().optional(),
+  apiKey: z.string().optional(),
+  roles: z.array(z.string()).optional(),
+  data: z.record(z.unknown()).optional(),
+  activate: z.boolean().optional(),
+});
+
+/**
+ * Validates the serializable fields of the config passed to `new TrustFlowClient(...)`.
+ *
+ * Covers every serializable field of `ClientConfig` (#437). `rpcServer` and
+ * `horizonServer` are deliberately omitted: they are live SDK objects used as
+ * dependency-injection seams, so they cannot be validated or serialized as data.
+ *
+ * The constructor performs its own checks and does not run this schema, so
+ * keep the two in step when `ClientConfig` gains a field.
+ */
 export const ClientConfigSchema = z.object({
   network: NetworkSchema.default('TESTNET'),
   contractId: ContractIdSchema,
   rpcUrl: z.string().url('RPC URL must be a valid URL').optional(),
+  rpcFailover: z
+    .object({
+      rpcUrls: z.array(z.string().url('RPC URL must be a valid URL')).min(1),
+      healthCheckIntervalMs: z.number().positive().optional(),
+      healthCheckTimeoutMs: z.number().positive().optional(),
+    })
+    .optional(),
   horizonUrl: z.string().url('Horizon URL must be a valid URL').optional(),
   networkPassphrase: z
     .string()
@@ -104,6 +132,16 @@ export const ClientConfigSchema = z.object({
   apiBaseUrl: z.string().url('API base URL must be a valid URL').optional(),
   apiKey: z.string().optional(),
   apiVersion: z.string().optional(),
+  timeoutMs: z.number().positive().optional(),
+  retry: z
+    .object({
+      retries: z.number().int().nonnegative().optional(),
+      retryDelayMs: z.number().nonnegative().optional(),
+      maxRetryDelayMs: z.number().nonnegative().optional(),
+      jitter: z.boolean().optional(),
+    })
+    .optional(),
+  accounts: z.array(AddAccountSchema).optional(),
   balanceCache: z
     .object({
       ttlMs: z.number().positive().optional(),
@@ -114,6 +152,8 @@ export const ClientConfigSchema = z.object({
       apiUrl: z.string().url().optional(),
       apiKey: z.string().optional(),
       gatewayUrl: z.string().url().optional(),
+      fallbackGateways: z.array(z.string().url()).optional(),
+      gateways: z.array(z.string().url()).optional(),
       timeoutMs: z.number().positive().optional(),
     })
     .optional(),

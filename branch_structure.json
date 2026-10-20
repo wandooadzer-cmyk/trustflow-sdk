@@ -1,0 +1,21 @@
+{
+  "default_branch": "main",
+  "branches": [
+    "fix/dependabot-audit-examples-react",
+    "fix/generate-typescript-bindings-compile",
+    "main",
+    "origin"
+  ],
+  "parent": {
+    "fix/dependabot-audit-examples-react": "main",
+    "fix/generate-typescript-bindings-compile": "main",
+    "main": null,
+    "origin": "main"
+  },
+  "order": [
+    "main",
+    "fix/dependabot-audit-examples-react",
+    "fix/generate-typescript-bindings-compile",
+    "origin"
+  ]
+}

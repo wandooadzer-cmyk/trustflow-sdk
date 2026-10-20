@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### Wallet adapter implementation (#435)
+
+- Issue #435: Added `createFreighterAdapter()` to `@trustflow/sdk/wallet`, a `WalletAdapter` implementation backed by the injected Freighter extension, and `MockWalletAdapter.asWalletAdapter()` in `@trustflow/sdk/testing`. Added `signMessage` to the documented `WalletAdapter` interface.
+
+### Resource fee padding for invokeContract (#438)
+
+- Issue #438: `invokeContract` with `signAndSubmit` now pads the simulated `minResourceFee` by 1.1x, matching `TransactionPipeline.prepare()`, and writes it into the Soroban data. Added an optional `resourceFeeMultiplier` to `InvokeContractOptions`. Shared the padding math in `padResourceFee`, which uses integer arithmetic and no longer overshoots by one stroop.
+
+### ClientConfigSchema coverage (#437)
+
+- Issue #437: `ClientConfigSchema` now validates `timeoutMs`, `retry`, `accounts`, `rpcFailover`, and the `ipfs` gateway lists, which it previously stripped. `rpcServer` and `horizonServer` remain excluded as live objects. The schema docs now state that the constructor does not run it.
+
+### Wallet entrypoint documentation (#439)
+
+- Issue #439: `docs/API.md` wallet example now imports from `@trustflow/sdk/wallet`, matching the README. Wallet helpers stay on the subpath rather than the package root, and an export-surface test enforces this.
+
 ### MultiSigConfig integration (#442)
 
 - Issue #442: Established `InitMultiSigParams extends MultiSigConfig`, added `MultiSigEscrowClient.getConfig` to expose operation configuration, and added integration tests.
