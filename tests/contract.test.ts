@@ -144,6 +144,62 @@ describe('contract module', () => {
       expect(result.txHash).toBe('tx_hash');
       expect(signAndSubmit).toHaveBeenCalledWith('xdr_string');
     });
+
+    it('pads the simulated resource fee by 1.1x before assembling for signing (#438)', async () => {
+      (rpc.Api.isSimulationError as unknown as jest.Mock).mockReturnValue(false);
+      const setResourceFee = jest.fn();
+      const mockServer = {
+        getAccount: jest
+          .fn()
+          .mockResolvedValue({ accountId: () => 'GBM...', sequenceNumber: () => '1' }),
+        simulateTransaction: jest.fn().mockResolvedValue({
+          result: { retval: 'value' },
+          minResourceFee: '1000',
+          transactionData: { setResourceFee },
+        }),
+      };
+      (rpc.Server as jest.Mock).mockImplementation(() => mockServer);
+      (Contract as jest.Mock).mockImplementation(() => ({ call: jest.fn().mockReturnValue({}) }));
+      (rpc.assembleTransaction as jest.Mock).mockReturnValue({
+        build: jest.fn().mockReturnValue({ toXDR: () => 'xdr_string' }),
+      });
+
+      await invokeContract(mockClient, 'release', [], 'GBM...', jest.fn().mockResolvedValue('h'));
+
+      expect(setResourceFee).toHaveBeenCalledWith('1100');
+      expect(rpc.assembleTransaction).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ minResourceFee: '1100' }),
+      );
+    });
+
+    it('honours a per-call resourceFeeMultiplier (#438)', async () => {
+      (rpc.Api.isSimulationError as unknown as jest.Mock).mockReturnValue(false);
+      const mockServer = {
+        getAccount: jest
+          .fn()
+          .mockResolvedValue({ accountId: () => 'GBM...', sequenceNumber: () => '1' }),
+        simulateTransaction: jest.fn().mockResolvedValue({
+          result: { retval: 'value' },
+          minResourceFee: '1000',
+          transactionData: { setResourceFee: jest.fn() },
+        }),
+      };
+      (rpc.Server as jest.Mock).mockImplementation(() => mockServer);
+      (Contract as jest.Mock).mockImplementation(() => ({ call: jest.fn().mockReturnValue({}) }));
+      (rpc.assembleTransaction as jest.Mock).mockReturnValue({
+        build: jest.fn().mockReturnValue({ toXDR: () => 'xdr_string' }),
+      });
+
+      await invokeContract(mockClient, 'release', [], 'GBM...', jest.fn().mockResolvedValue('h'), {
+        resourceFeeMultiplier: 2,
+      });
+
+      expect(rpc.assembleTransaction).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ minResourceFee: '2000' }),
+      );
+    });
   });
 
   describe('read.ts', () => {

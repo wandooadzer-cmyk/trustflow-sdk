@@ -406,21 +406,36 @@ const uri = generateSep7Uri(preparedXdr, {
   ```
   Note: This object contains connection state only. To sign, obtain the wallet adapter directly from `getFreighter()` or similar.
   
-- `WalletAdapter` — Interface for wallet provider APIs (not returned by `connectWallet`):
+- `WalletAdapter` — Uniform interface for wallet providers (#435). Not returned by `connectWallet`;
+  obtain a concrete adapter from `createFreighterAdapter()`:
   ```typescript
   interface WalletAdapter {
     type: WalletType;
     isAvailable(): Promise<boolean>;
     connect(): Promise<WalletConnection>;
     sign(xdr: string, network: string): Promise<string>;  // Sign an XDR transaction
+    signMessage(message: string): Promise<string>;        // Sign a UTF-8 message, base64 signature
     disconnect(): Promise<void>;
   }
   ```
+- `createFreighterAdapter()` — Returns a `WalletAdapter` backed by the injected Freighter extension (#435).
+  The extension is looked up on each call. `isAvailable()` resolves `false` when it is missing; the other
+  methods throw `TrustFlowError` with code `UNAUTHORIZED`.
+  ```typescript
+  import { createFreighterAdapter } from '@trustflow/sdk/wallet';
+
+  const adapter = createFreighterAdapter();
+  if (await adapter.isAvailable()) {
+    const { publicKey } = await adapter.connect();
+  }
+  ```
+  `MockWalletAdapter.asWalletAdapter()` (from `@trustflow/sdk/testing`) returns the same interface for tests.
 
 ### Example
 
 ```typescript
-import { connectWallet, isFreighterInstalled } from '@trustflow/sdk';
+// Wallet helpers live on the `/wallet` subpath, not the package root (#439).
+import { connectWallet, isFreighterInstalled, TrustFlowError } from '@trustflow/sdk/wallet';
 
 // Check if Freighter is available
 const installed = await isFreighterInstalled();
@@ -506,7 +521,9 @@ re-implementing the rules:
 
 - `StellarAddressSchema`, `ContractIdSchema`, `StroopsSchema`, `NetworkSchema` — primitives
 - `CreateEscrowSchema`, `ReleaseEscrowSchema`, `DisputeEscrowSchema` — escrow operation inputs
-- `ClientConfigSchema` — `new TrustFlowClient(...)` config
+- `ClientConfigSchema` — `new TrustFlowClient(...)` config. It covers every serializable field of
+  `ClientConfig`; the live `rpcServer` / `horizonServer` seams are excluded because they are objects,
+  not data. The constructor performs its own checks rather than running this schema (#437).
 - Inferred types `CreateEscrowInput`, `ReleaseEscrowInput`, `DisputeEscrowInput` are exported
   alongside their schemas. (`Network`/`ClientConfig` are not re-exported under those names from
   the root — they'd collide with the existing plain TS types of the same name; derive them

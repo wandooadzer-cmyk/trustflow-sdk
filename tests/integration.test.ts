@@ -1,5 +1,6 @@
 import * as SDK from '../src/index';
 import * as EscrowBarrel from '../src/escrow/index';
+import * as WalletBarrel from '../src/wallet/index';
 
 describe('SDK Barrel Public Export Surface Integration Tests', () => {
     // Maintained allowlist tracking expected exported public modules to catch accidental drop drift
@@ -25,6 +26,14 @@ describe('SDK Barrel Public Export Surface Integration Tests', () => {
         expect(typeof SDK.disputeEscrow).toBe('function');
         expect(typeof EscrowBarrel.disputeEscrow).toBe('function');
         expect(SDK.disputeEscrow).toBe(EscrowBarrel.disputeEscrow);
+    });
+
+    it('keeps wallet helpers on the /wallet subpath, matching the documented import (#439)', () => {
+        expect(typeof WalletBarrel.connectWallet).toBe('function');
+        expect(typeof WalletBarrel.isFreighterInstalled).toBe('function');
+        expect(WalletBarrel.TrustFlowError).toBe(SDK.TrustFlowError);
+        expect(SDK).not.toHaveProperty('connectWallet');
+        expect(SDK).not.toHaveProperty('isFreighterInstalled');
     });
 
     it('exports DisputeClient from both the package root and the escrow barrel', () => {

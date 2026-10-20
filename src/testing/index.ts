@@ -1,6 +1,7 @@
 import { xdr, nativeToScVal, scValToNative, SorobanDataBuilder } from '@stellar/stellar-sdk';
 
 import type { Escrow, EscrowState, EscrowStatus } from '../types/index';
+import type { WalletAdapter } from '../wallet/types';
 
 /**
  * Validates whether a value is a structurally valid Stellar `ScVal` (round-trips through XDR).
@@ -554,6 +555,28 @@ export class MockWalletAdapter {
       },
       getNetwork: async () => 'TESTNET',
       signMessage: async (message: string) => `mock_sig_${message}`,
+    };
+  }
+
+  /**
+   * Presents this mock through the SDK's {@link WalletAdapter} interface (#435), so
+   * code written against the interface can run under test. Shares state with this
+   * instance: connecting or disconnecting the adapter changes this mock too.
+   *
+   * @returns A `WalletAdapter` backed by this mock
+   */
+  asWalletAdapter(): WalletAdapter {
+    return {
+      type: 'freighter',
+      isAvailable: async () => this.isConnected(),
+      connect: async () => ({
+        type: 'freighter',
+        publicKey: await this.connect(),
+        network: 'TESTNET',
+      }),
+      sign: async (xdrString) => this.signTransaction(xdrString),
+      signMessage: async (message) => `mock_sig_${message}`,
+      disconnect: () => this.disconnect(),
     };
   }
 }

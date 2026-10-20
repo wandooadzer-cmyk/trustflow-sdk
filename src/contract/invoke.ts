@@ -3,6 +3,7 @@ import type { TrustFlowClient } from '../client';
 import type { ContractCallResult } from '../types/contract';
 import type { AccountOptions } from '../accounts/types';
 import { withTransientRetry } from '../utils/node-retry';
+import { padResourceFee } from '../utils/resource-fee';
 import { logger } from '../utils/logger';
 import type { ReadContractStateOptions } from './read';
 import { simulateTransaction } from './simulation';
@@ -23,6 +24,14 @@ export interface InvokeContractOptions extends AccountOptions {
    * {@link ClientConfig.timeoutMs}.
    */
   timeoutMs?: number;
+  /**
+   * Safety multiplier applied to the simulated `minResourceFee` before the
+   * transaction is assembled for signing, so a ledger-state change between
+   * simulation and submission does not fail with "insufficient resource fee"
+   * (#438). Defaults to `1.1`, matching `TransactionPipeline.prepare()`. Only
+   * affects the `signAndSubmit` path.
+   */
+  resourceFeeMultiplier?: number;
 }
 
 /**
@@ -120,11 +129,15 @@ export async function invokeContract(
       };
     }
 
+    const paddedFee = padResourceFee(simulation.minResourceFee, options.resourceFeeMultiplier);
+    // Same ordering as TransactionPipeline.prepare(): the padded fee must land
+    // in the Soroban data itself, not only in the `minResourceFee` argument.
+    simulation.transactionData?.setResourceFee(paddedFee);
     const prepared = rpc
       .assembleTransaction(tx, {
         transactionData: simulation.transactionData ?? '',
         events: [],
-        minResourceFee: simulation.minResourceFee ?? '0',
+        minResourceFee: paddedFee,
         result: { retval: simulation.returnValue as any },
       } as any)
       .build();
